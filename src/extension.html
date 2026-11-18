@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <body style="width:220px;font-family:sans-serif">
+    <h3>Hosts2</h3>
+    <p>Logging: <b id="status">stopped</b></p>
+    <button id="toggle">Start</button>
+    <button id="export">Export hosts2.csv</button>
+    <button id="export-peers">Export peers2.csv</button>
+    <hr>
+    <button id="clear-hosts">Clear hosts2 data</button>
+    <button id="clear-peers">Clear peers2 data</button>
+    <button id="clear-all">Clear all data</button>
+    <div id="confirmation" hidden>
+      <p id="confirmation-text"></p>
+      <button id="confirm-clear">Clear</button>
+      <button id="cancel-clear">Cancel</button>
+    </div>
+    <p>Clears stored lists; logging preferences are kept. New data may be collected again.</p>
+    <p id="message" role="status"></p>
+    <p><label><input type="checkbox" id="auto"> Start automatically on startup</label></p>
+    <script src="popup.js"></script>
+  </body>
+</html>

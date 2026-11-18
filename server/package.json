@@ -1,0 +1,16 @@
+{
+  "name": "hosts2-root-server",
+  "version": "1.0.0",
+  "description": "Root server for Hosts2, a decentralized DNS cache network",
+  "license": "ISC",
+  "author": "Benjamin Lammers",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "swarm": "node test/swarm.js"
+  },
+  "dependencies": {
+    "node-datachannel": "^0.33.6",
+    "ws": "^8.22.1"
+  }
+}

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hosts2 swarm</title>
+<style>
+  body { margin: 0; font: 13px system-ui, sans-serif; background: #111; color: #ddd; display: flex; height: 100vh; }
+  #graph { flex: 1; position: relative; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #side { width: 380px; display: flex; flex-direction: column; border-left: 1px solid #333; }
+  #stats { padding: 10px; border-bottom: 1px solid #333; }
+  #log { flex: 1; overflow-y: auto; padding: 6px 10px; font: 12px monospace; }
+  #log div { padding: 1px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .legend span { margin-right: 12px; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
+</style>
+</head>
+<body>
+<div id="graph"><canvas id="c"></canvas></div>
+<div id="side">
+  <div id="stats"></div>
+  <div id="log"></div>
+</div>
+<script>
+const COLORS = { dummy: '#4da3ff', real: '#ffb84d', hosts: '#5fd35f', peers: '#c77dff', visit: '#ff6b6b' };
+const nodes = new Map(); // id -> {id, dummy, x, y, vx, vy, flash}
+const links = new Set(); // "a|b"
+const pulses = []; // {from, to, color, t}
+let eventCount = 0;
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const logEl = document.getElementById('log');
+const statsEl = document.getElementById('stats');
+const short = (id) => id.slice(0, 8);
+const key = (a, b) => [a, b].sort().join('|');
+
+function resize() {
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+}
+addEventListener('resize', resize);
+resize();
+
+function addNode(id, dummy) {
+  const n = nodes.get(id);
+  if (n) { if (dummy) n.dummy = true; return n; }
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const node = { id, dummy: !!dummy, x: w / 2 + (Math.random() - 0.5) * 200, y: h / 2 + (Math.random() - 0.5) * 200, vx: 0, vy: 0, flash: 0 };
+  nodes.set(id, node);
+  return node;
+}
+
+function removeNode(id) {
+  nodes.delete(id);
+  for (const l of [...links]) if (l.split('|').includes(id)) links.delete(l);
+}
+
+function log(text, color) {
+  const d = document.createElement('div');
+  d.textContent = `${new Date().toLocaleTimeString()} ${text}`;
+  if (color) d.style.color = color;
+  logEl.prepend(d);
+  while (logEl.children.length > 300) logEl.lastChild.remove();
+}
+
+function pulse(from, to, color) {
+  if (nodes.has(from) && nodes.has(to)) pulses.push({ from, to, color, t: 0 });
+}
+
+function handle(ev) {
+  eventCount++;
+  switch (ev.kind) {
+    case 'snapshot':
+      nodes.clear(); links.clear();
+      ev.nodes.forEach((n) => addNode(n.id, n.dummy));
+      ev.links.forEach(([a, b]) => links.add(key(a, b)));
+      break;
+    case 'join': addNode(ev.id, true); log(`+ ${short(ev.id)} joined root`, COLORS.dummy); break;
+    case 'leave': removeNode(ev.id); log(`- ${short(ev.id)} left root`, '#888'); break;
+    case 'connect':
+      addNode(ev.from, true); addNode(ev.to, ev.toDummy);
+      links.add(key(ev.from, ev.to));
+      log(`${short(ev.from)} <-> ${short(ev.to)} connected`);
+      break;
+    case 'disconnect':
+      links.delete(key(ev.from, ev.to));
+      log(`${short(ev.from)} x ${short(ev.to)} disconnected`, '#888');
+      break;
+    case 'hosts':
+      pulse(ev.from, ev.to, COLORS.hosts);
+      log(`${short(ev.from)} -> ${short(ev.to)} hosts x${ev.count} ${ev.sample.join(', ')}`, COLORS.hosts);
+      break;
+    case 'recv-hosts':
+      log(`${short(ev.to)} stored ${ev.added}/${ev.count} hosts from ${short(ev.from)}`, '#8a8');
+      break;
+    case 'peers':
+      pulse(ev.from, ev.to, COLORS.peers);
+      log(`${short(ev.from)} -> ${short(ev.to)} peer list x${ev.count}`, COLORS.peers);
+      break;
+    case 'recv-peers':
+      log(`${short(ev.to)} learned ${ev.count} peers from ${short(ev.from)}`, '#a8c');
+      break;
+    case 'visit': {
+      const n = nodes.get(ev.id);
+      if (n) n.flash = 1;
+      log(`${short(ev.id)} visited ${ev.domain} (${ev.ip})`, COLORS.visit);
+      break;
+    }
+  }
+}
+
+function step() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const arr = [...nodes.values()];
+  for (const a of arr) {
+    a.vx += (w / 2 - a.x) * 0.001;
+    a.vy += (h / 2 - a.y) * 0.001;
+    for (const b of arr) {
+      if (a === b) continue;
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const d2 = Math.max(dx * dx + dy * dy, 100);
+      const f = 3000 / d2;
+      const d = Math.sqrt(d2);
+      a.vx += (dx / d) * f; a.vy += (dy / d) * f;
+    }
+  }
+  for (const l of links) {
+    const [ia, ib] = l.split('|');
+    const a = nodes.get(ia), b = nodes.get(ib);
+    if (!a || !b) continue;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.sqrt(dx * dx + dy * dy) || 1;
+    const f = (d - 140) * 0.01;
+    a.vx += (dx / d) * f; a.vy += (dy / d) * f;
+    b.vx -= (dx / d) * f; b.vy -= (dy / d) * f;
+  }
+  for (const n of arr) {
+    n.vx *= 0.85; n.vy *= 0.85;
+    n.x += n.vx; n.y += n.vy;
+    n.flash = Math.max(0, n.flash - 0.02);
+  }
+}
+
+function draw() {
+  step();
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 1;
+  for (const l of links) {
+    const [a, b] = l.split('|').map((i) => nodes.get(i));
+    if (!a || !b) continue;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  for (let i = pulses.length - 1; i >= 0; i--) {
+    const p = pulses[i];
+    const a = nodes.get(p.from), b = nodes.get(p.to);
+    p.t += 0.03;
+    if (!a || !b || p.t >= 1) { pulses.splice(i, 1); continue; }
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(a.x + (b.x - a.x) * p.t, a.y + (b.y - a.y) * p.t, 4, 0, 7); ctx.fill();
+  }
+  for (const n of nodes.values()) {
+    if (n.flash) {
+      ctx.fillStyle = `rgba(255,107,107,${n.flash * 0.5})`;
+      ctx.beginPath(); ctx.arc(n.x, n.y, 14 + (1 - n.flash) * 20, 0, 7); ctx.fill();
+    }
+    ctx.fillStyle = n.dummy ? COLORS.dummy : COLORS.real;
+    ctx.beginPath(); ctx.arc(n.x, n.y, 9, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ccc'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(short(n.id), n.x, n.y + 24);
+  }
+  statsEl.innerHTML =
+    `<div class="legend"><span><i class="dot" style="background:${COLORS.dummy}"></i>dummy</span>` +
+    `<span><i class="dot" style="background:${COLORS.real}"></i>other peer</span></div>` +
+    `<div class="legend"><span style="color:${COLORS.hosts}">hosts</span><span style="color:${COLORS.peers}">peer list</span>` +
+    `<span style="color:${COLORS.visit}">visit</span></div>` +
+    `<div>${nodes.size} peers, ${links.size} connections, ${eventCount} events</div>`;
+  requestAnimationFrame(draw);
+}
+
+const es = new EventSource('/events');
+es.onmessage = (e) => handle(JSON.parse(e.data));
+es.onerror = () => log('dashboard disconnected, retrying...', '#f66');
+draw();
+</script>
+</body>
+</html>

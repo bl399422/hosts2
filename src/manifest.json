@@ -1,0 +1,13 @@
+{
+  "name": "Hosts2",
+  "description": "Decentralized DNS Cache",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": ["webRequest", "storage", "alarms", "offscreen"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_popup": "extension.html",
+    "default_icon": "Hosts2.png"
+  }
+}
