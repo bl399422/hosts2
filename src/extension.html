@@ -1,23 +1,62 @@
 <!DOCTYPE html>
 <html>
-  <body style="width:220px;font-family:sans-serif">
-    <h3>Hosts2</h3>
-    <p>Logging: <b id="status">stopped</b></p>
-    <button id="toggle">Start</button>
-    <button id="export">Export hosts2.csv</button>
-    <button id="export-peers">Export peers2.csv</button>
-    <hr>
-    <button id="clear-hosts">Clear hosts2 data</button>
-    <button id="clear-peers">Clear peers2 data</button>
-    <button id="clear-all">Clear all data</button>
-    <div id="confirmation" hidden>
-      <p id="confirmation-text"></p>
-      <button id="confirm-clear">Clear</button>
-      <button id="cancel-clear">Cancel</button>
-    </div>
-    <p>Clears stored lists; logging preferences are kept. New data may be collected again.</p>
-    <p id="message" role="status"></p>
-    <p><label><input type="checkbox" id="auto"> Start automatically on startup</label></p>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="extension.css">
+  </head>
+  <body>
+    <header>
+      <div>
+        <p class="eyebrow">Network activity</p>
+        <h1>Hosts2</h1>
+      </div>
+      <span class="status"><span id="status">stopped</span></span>
+    </header>
+
+    <main>
+      <section aria-labelledby="logging-heading">
+        <h2 id="logging-heading">Logging</h2>
+        <div class="button-stack">
+          <button class="primary" id="toggle" type="button">Start</button>
+          <label class="auto-start" title="Automatically start logging whenever the extension starts.">
+            <input type="checkbox" id="auto">
+            <span>Start automatically on startup</span>
+          </label>
+        </div>
+      </section>
+
+      <section aria-labelledby="exports-heading">
+        <h2 id="exports-heading">Export data</h2>
+        <p class="section-description">Download a CSV copy of your collected data.</p>
+        <div class="button-stack">
+          <button id="export" type="button" title="Download hosts2.csv with each recorded domain, IP address, and timestamp.">Export hosts2.csv</button>
+          <button id="export-peers" type="button" title="Download peers2.csv with each peer IP, first and last seen times, and preferred status.">Export peers2.csv</button>
+        </div>
+      </section>
+
+      <section aria-labelledby="clear-heading">
+        <h2 id="clear-heading">Clear stored data</h2>
+        <p class="section-description">Choose a list to erase. You'll be asked to confirm.</p>
+        <div class="button-stack">
+          <button class="danger" id="clear-hosts" type="button" title="Ask for confirmation, then permanently delete the recorded hosts2 list.">Clear hosts2 data</button>
+          <button class="danger" id="clear-peers" type="button" title="Ask for confirmation, then permanently delete the recorded peers2 list.">Clear peers2 data</button>
+          <button class="danger" id="clear-all" type="button" title="Ask for confirmation, then permanently delete both stored lists.">Clear all data</button>
+        </div>
+        <p class="note">Logging preferences are kept. New data may be collected again while logging is on.</p>
+      </section>
+
+      <section id="confirmation" aria-live="polite" hidden>
+        <h2>Confirm deletion</h2>
+        <p id="confirmation-text"></p>
+        <div class="confirmation-actions">
+          <button class="danger" id="confirm-clear" type="button" title="Permanently delete the selected stored data.">Clear</button>
+          <button id="cancel-clear" type="button" title="Cancel deletion and keep the selected data.">Cancel</button>
+        </div>
+      </section>
+
+      <p id="message" role="status" aria-live="polite"></p>
+    </main>
     <script src="popup.js"></script>
   </body>
 </html>

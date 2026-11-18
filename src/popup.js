@@ -2,7 +2,11 @@ const $ = (id) => document.getElementById(id);
 
 function render(enabled) {
   $("status").textContent = enabled ? "running" : "stopped";
+  $("status").parentElement.dataset.enabled = String(enabled);
   $("toggle").textContent = enabled ? "Stop" : "Start";
+  $("toggle").title = enabled
+    ? "Stop recording network activity."
+    : "Start recording network activity.";
 }
 
 async function init() {
